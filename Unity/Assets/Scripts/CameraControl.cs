@@ -8,6 +8,7 @@ public class CameraControl : MonoBehaviour
     DisplayConfig displayConfig = new DisplayConfig(), defaultConfig = new DisplayConfig();
     List<Camera> cameras = new List<Camera>();
     bool trackHead = false;
+    public static bool drawDebug = false;
 
     // Use this for initialization
     void Start()
@@ -43,7 +44,6 @@ public class CameraControl : MonoBehaviour
 
         for (int i = 0; i < displayConfig.displays.Count; i++)
         {
-            //TODO: Create cameras
             var cameraGameObject = new GameObject("Camera_A" + i);
             cameraGameObject.transform.parent = gameObject.transform;
             cameraGameObject.transform.Translate(gameObject.transform.transform.position);
@@ -130,19 +130,29 @@ public class CameraControl : MonoBehaviour
         var projMat = Matrix4x4.Perspective(vertFOVTarget, Mathf.Tan(vertFOVTarget * 0.5f) / Mathf.Tan(horizFOVTarget * 0.5f), 0.1f, 1000f);
         var planeNormal = -Vector3.Normalize((d.displayRot * d.centerPosition));
 
-        for (int i = 0; i < displayCorners.Length; i++)
+        if (drawDebug)
         {
-            Debug.DrawLine(displayCorners[i], displayCorners[(i + 1) % 4], Color.blue);
+            for (int i = 0; i < displayCorners.Length; i++)
+            {
+                Debug.DrawLine(displayCorners[i], displayCorners[(i + 1) % 4], Color.blue);
+            }
         }
 
-        //Debug.Log(projMat);
-        Debug.DrawRay(d.centerPosition, planeNormal, Color.red, 2);
+        if (drawDebug)
+        {
+            Debug.DrawRay(d.centerPosition, planeNormal, Color.red, 2);
+        }
+
         planeNormal = projMat * planeNormal;
         var newCenter = projMat * d.centerPosition;
-        Debug.DrawRay(d.centerPosition, planeNormal);
 
-        var plane = new Vector4(planeNormal.x, planeNormal.y, planeNormal.z, -Vector3.Dot(planeNormal, newCenter));
-        CalculateObliqueMatrix(ref projMat, plane);
+        if (drawDebug)
+        {
+            Debug.DrawRay(d.centerPosition, planeNormal);
+        }
+
+        //var plane = new Vector4(planeNormal.x, planeNormal.y, planeNormal.z, -Vector3.Dot(planeNormal, newCenter));
+        //CalculateObliqueMatrix(ref projMat, plane);
         return projMat;
     }
 
@@ -175,12 +185,12 @@ public class CameraControl : MonoBehaviour
     /// </summary>
     static DisplayConfig LoadDisplayConfig()
     {
-        string configPath = Path.Combine(Application.dataPath, "DisplayConfig.test.json");
+        string configPath = Path.Combine(Path.Combine(Application.dataPath, "Config"), "DisplayConfig.test.json");
         try
         {
             if (!File.Exists(configPath))
             {
-                configPath = Path.Combine(Application.dataPath, "DisplayConfig.json");
+                configPath = Path.Combine(Path.Combine(Application.dataPath, "Config"), "DisplayConfig.json");
                 Debug.Log("Production display config loaded");
             }
             else
@@ -190,7 +200,7 @@ public class CameraControl : MonoBehaviour
 
             if (!File.Exists(configPath))
             {
-                configPath = Path.Combine(Application.dataPath, "DisplayConfig.default.json");
+                configPath = Path.Combine(Path.Combine(Application.dataPath, "Config"), "DisplayConfig.default.json");
                 Debug.Log("Default display config loaded");
             }
 
