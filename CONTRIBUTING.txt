@@ -1,0 +1,7 @@
+GitHub collab. rules
+In no particular order:
+
+1) Keep everything clear for others. (i.e. commented and organized)
+2) Do not leave assets in the root directory.
+3) Do not push broken or incomplete changes to fix later to the main branch.
+4) Fetch often. This will reduce conflicts you have to solve when merging.
