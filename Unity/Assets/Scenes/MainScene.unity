@@ -646,9 +646,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   rb: {fileID: 0}
   flapThrustScale: 50
-  liftScale: 1
+  liftScale: 0.4
   vertDragScale: 1
-  liftPointDistance: 1.5
+  torqueDampenPosFactor: {x: 0.02, y: 0.12, z: 0.02}
 --- !u!65 &1077042916
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -711,12 +711,12 @@ Rigidbody:
   m_GameObject: {fileID: 1077042913}
   serializedVersion: 2
   m_Mass: 1
-  m_Drag: 0.3
-  m_AngularDrag: 0.1
-  m_UseGravity: 1
+  m_Drag: 0.5
+  m_AngularDrag: 5
+  m_UseGravity: 0
   m_IsKinematic: 0
   m_Interpolate: 0
-  m_Constraints: 112
+  m_Constraints: 0
   m_CollisionDetection: 0
 --- !u!1 &1185996304
 GameObject:
@@ -905,6 +905,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1702207772}
+  - component: {fileID: 1702207773}
   m_Layer: 0
   m_Name: Player Group
   m_TagString: Untagged
@@ -927,3 +928,15 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 3
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1702207773
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_GameObject: {fileID: 1702207771}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 06ec4b2eb205ec647b870b620d60597f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  velocity: {x: 0, y: 0, z: 0}
