@@ -8,6 +8,7 @@ public class SensorInterface : MonoBehaviour
 {
 
     string message = "";
+    MovingAverage av = new MovingAverage(5);
 
     void Update()
     {
@@ -15,8 +16,6 @@ public class SensorInterface : MonoBehaviour
         {
             var convSkel = ConvertSkeleton(CurrentUserTracker.CurrentSkeleton);
             message = "User found: " + ProcessSkeleton(CurrentUserTracker.CurrentSkeleton);
-            
-            //Debug.Log(ConvertSkeleton(CurrentUserTracker.CurrentSkeleton));
         }
         else
         {
@@ -35,9 +34,6 @@ public class SensorInterface : MonoBehaviour
     // Update is called once per frame
     UserData ProcessSkeleton(nuitrack.Skeleton skel)
     {
-        //var lHand = skel.GetJoint(nt.JointType.LeftHand);
-        //var rHand = skel.GetJoint(nt.JointType.RightHand);
-
         Dictionary<nt.JointType, Vector3> convSkel = ConvertSkeleton(skel);
 
         Vector3 collarTorso = convSkel[nt.JointType.Torso] - convSkel[nt.JointType.RightCollar];
@@ -47,11 +43,6 @@ public class SensorInterface : MonoBehaviour
 
 
         Vector3 shoulderVector = convSkel[nt.JointType.RightShoulder] - convSkel[nt.JointType.LeftShoulder];
-
-        if (skel.GetJoint(nt.JointType.RightHand).Confidence >= skel.GetJoint(nt.JointType.RightElbow).Confidence)
-        {
-            
-        }
 
         Vector3 rightArmTip = GetPreferredJoint(skel.GetJoint(nt.JointType.RightHand), skel.GetJoint(nt.JointType.RightElbow));
         Vector3 leftArmTip = GetPreferredJoint(skel.GetJoint(nt.JointType.LeftHand), skel.GetJoint(nt.JointType.LeftElbow));
@@ -69,10 +60,10 @@ public class SensorInterface : MonoBehaviour
         float leftArmExtension = Vector3.ProjectOnPlane(leftArmVec, bodyPlane).magnitude / LeftArmMaxExtension;
 
         UserData output = new UserData(rightArmAngle, rightArmExtension, leftArmAngle, leftArmExtension);
-        return output;
-        
-        //return Vector3.Magnitude(rHand.Real.ToVector3() - lHand.Real.ToVector3());
-        //return 0;
+
+        av.PushSample(output);
+
+        return av.GetAverage();
     }
 
     Dictionary<nuitrack.JointType, Vector3> ConvertSkeleton(nuitrack.Skeleton skel)
@@ -105,12 +96,12 @@ public class SensorInterface : MonoBehaviour
         }
     }
 
-    private T Max<T>(T o1, T o2) where T:IComparable<T>
+    private T Max<T>(T o1, T o2) where T : IComparable<T>
     {
         return (o1.CompareTo(o2) > 0 ? o1 : o2);
     }
 
-    public struct UserData
+    public struct UserData : ICloneable
     {
         public float rightArmAngle, rightArmExtension, leftArmAngle, leftArmExtension;
 
@@ -122,9 +113,30 @@ public class SensorInterface : MonoBehaviour
             this.leftArmExtension = leftArmExtension;
         }
 
+        public object Clone()
+        {
+            return new UserData(rightArmAngle, rightArmExtension, leftArmAngle, leftArmExtension);
+        }
+
         public override string ToString()
         {
-            return $"\nLA:{leftArmAngle:0.##}\n RA:{rightArmAngle:0.##}\n LE:{leftArmExtension:0.##}\n RE:{rightArmExtension:0.##}";
+            return $"LA:{leftArmAngle:0.##}\n RA:{rightArmAngle:0.##}\n LE:{leftArmExtension:0.##}\n RE:{rightArmExtension:0.##}";
+        }
+
+        public void Add(UserData a)
+        {
+            rightArmAngle += a.rightArmAngle;
+            rightArmExtension += a.rightArmExtension;
+            leftArmAngle += a.leftArmAngle;
+            leftArmExtension += a.leftArmExtension;
+        }
+
+        public void Divide(int a)
+        {
+            rightArmAngle /= a;
+            rightArmExtension /= a;
+            leftArmAngle /= a;
+            leftArmExtension /= a;
         }
     }
 
@@ -132,4 +144,47 @@ public class SensorInterface : MonoBehaviour
     {
         return (hand.Confidence >= elbow.Confidence ? hand : elbow).Real.ToVector3();
     }
+
+    private class MovingAverage
+    {
+        private int SampleCount;
+        private UserData[] Samples;
+        private bool upToDate = false;
+        private int index = 0;
+        private UserData average;
+
+        public MovingAverage(int sampleCount)
+        {
+            SampleCount = sampleCount;
+            Samples = new UserData[SampleCount];
+        }
+
+        public void PushSample(UserData sample)
+        {
+            Samples[index] = sample;
+            index = (index + 1) % Samples.Length;
+            upToDate = false;
+        }
+
+        public UserData GetAverage()
+        {
+            if (!upToDate)
+            {
+                average = new UserData(0, 0, 0, 0);
+                foreach (var a in Samples)
+                {
+                    average.Add(a);
+                }
+                average.Divide(SampleCount);
+            }
+
+            return average;
+        }
+
+        public void SetSampleCount()
+        {
+
+        }
+    }
 }
+
