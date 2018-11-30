@@ -123,8 +123,11 @@ public class CameraControl : MonoBehaviour
             Vector3.Angle(vDisplayCorners[2], vDisplayCorners[3])
             );
 
-        Debug.Log("VertFOVTarget: " + vertFOVTarget);
-        Debug.Log("HorizFOXTarget: " + horizFOVTarget);
+        if (drawDebug)
+        {
+            Debug.Log("VertFOVTarget: " + vertFOVTarget);
+            Debug.Log("HorizFOXTarget: " + horizFOVTarget);
+        }
 
         //TODO: Clip with display plane to make oblique frustrum
         var projMat = Matrix4x4.Perspective(vertFOVTarget, Mathf.Tan(vertFOVTarget * 0.5f) / Mathf.Tan(horizFOVTarget * 0.5f), 0.1f, 1000f);
@@ -136,12 +139,9 @@ public class CameraControl : MonoBehaviour
             {
                 Debug.DrawLine(displayCorners[i], displayCorners[(i + 1) % 4], Color.blue);
             }
-        }
-
-        if (drawDebug)
-        {
             Debug.DrawRay(d.centerPosition, planeNormal, Color.red, 2);
         }
+
 
         planeNormal = projMat * planeNormal;
         var newCenter = projMat * d.centerPosition;
@@ -191,7 +191,7 @@ public class CameraControl : MonoBehaviour
             if (!File.Exists(configPath))
             {
                 configPath = Path.Combine(Path.Combine(Application.dataPath, "Config"), "DisplayConfig.json");
-                Debug.Log("Production display config loaded");
+                Debug.Log("Display testing config not found, attempting to load production config");
             }
             else
             {
@@ -201,7 +201,7 @@ public class CameraControl : MonoBehaviour
             if (!File.Exists(configPath))
             {
                 configPath = Path.Combine(Path.Combine(Application.dataPath, "Config"), "DisplayConfig.default.json");
-                Debug.Log("Default display config loaded");
+                Debug.Log("Production config not found, loading default config");
             }
 
             string rawConfig = System.IO.File.ReadAllText(configPath);
@@ -210,7 +210,7 @@ public class CameraControl : MonoBehaviour
 
             if (UnityEngine.Display.displays.Length < displayConfig.displays.Count)
             {
-                Debug.Log("<color=orange>Warning:</color> Number of active displays less than configured. \nAssuming display one is primary.");
+                Debug.LogWarning("<color=orange>Warning:</color> Number of active displays less than configured. \nAssuming display one is primary.");
             }
 
             return displayConfig;
