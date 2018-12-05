@@ -6,6 +6,8 @@ using nt = nuitrack;
 
 public class SensorInterface : MonoBehaviour
 {
+	// The data to export
+	public UserData data = new UserData(0, 0, 0, 0);
 
     string message = "";
     MovingAverage av = new MovingAverage(5);
@@ -14,8 +16,9 @@ public class SensorInterface : MonoBehaviour
     {
         if (CurrentUserTracker.CurrentUser != 0)
         {
-            var convSkel = ConvertSkeleton(CurrentUserTracker.CurrentSkeleton);
-            message = "User found: " + ProcessSkeleton(CurrentUserTracker.CurrentSkeleton);
+			// Update the user data
+			data = ProcessSkeleton(CurrentUserTracker.CurrentSkeleton);
+            message = "User found: " + data;
         }
         else
         {
@@ -23,7 +26,7 @@ public class SensorInterface : MonoBehaviour
         }
     }
 
-    // Display the message on the screen
+    /// DEBUG Display the message on the screen
     void OnGUI()
     {
         GUI.color = Color.red;
@@ -120,7 +123,7 @@ public class SensorInterface : MonoBehaviour
 
         public override string ToString()
         {
-            return $"LA:{leftArmAngle:0.##}\n RA:{rightArmAngle:0.##}\n LE:{leftArmExtension:0.##}\n RE:{rightArmExtension:0.##}";
+            return ""; // $"LA:{leftArmAngle:0.##}\n RA:{rightArmAngle:0.##}\n LE:{leftArmExtension:0.##}\n RE:{rightArmExtension:0.##}";
         }
 
         public void Add(UserData a)

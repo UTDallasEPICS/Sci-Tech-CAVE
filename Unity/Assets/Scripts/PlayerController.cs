@@ -45,9 +45,11 @@ public class PlayerController : MonoBehaviour {
 
     /// External References
     // Reference to the rigid body of the bird
-    public Rigidbody rb;
+    private Rigidbody rb;
     // Velocity object of the player group
     private VelocityFromPosition group;
+	// Reference to the component that obtains motion tracking info
+	private SensorInterface tracker;
 
     /// Parameters: Scalars
     // Thrust caused by flapping wings
@@ -87,6 +89,8 @@ public class PlayerController : MonoBehaviour {
         rightLiftPoint = transform.GetChild(1);
         // Get the group (parent) velocity reference
         group = rb.transform.parent.GetComponent<VelocityFromPosition>();
+		// Get the tracker / reference to sensor info
+		tracker = GameObject.Find("Tracker").GetComponent<SensorInterface>();
     }
 
     // Update is called once per frame.
@@ -153,6 +157,9 @@ public class PlayerController : MonoBehaviour {
         }
 
         /// Input Control
+		// Set wing extension based on arm angle
+		leftWingExtended = Mathf.Cos(tracker.data.leftArmExtension);
+		rightWingExtended = Mathf.Cos(tracker.data.rightArmExtension);
 
         // Add sensor control input here //
 
