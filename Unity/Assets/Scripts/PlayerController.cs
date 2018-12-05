@@ -159,6 +159,9 @@ public class PlayerController : MonoBehaviour {
         }
 
         /// Input Control
+		//Save previous extension (o calculate difference)
+		pLeftWingExtended = leftWingExtended;
+		pRightWingExtended = rightWingExtended;
 		// Set wing extension based on arm angle
 		leftWingExtended = Mathf.Cos(tracker.data.leftArmExtension);
 		rightWingExtended = Mathf.Cos(tracker.data.rightArmExtension);
