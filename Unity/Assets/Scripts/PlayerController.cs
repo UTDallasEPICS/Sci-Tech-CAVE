@@ -53,7 +53,7 @@ public class PlayerController : MonoBehaviour {
 
     /// Parameters: Scalars
     // Thrust caused by flapping wings
-    public float flapThrustScale = 50f;
+    public float flapThrustScale = 1f;
     // How much lift is generated
     public float liftScale = 0.4f;
     // How much vertical drag is generated
@@ -211,8 +211,10 @@ public class PlayerController : MonoBehaviour {
 
         /// Input Control - Wing Thrust
         // Generate thrust based on flapping wings. Just add it to the lift vector(s) to be applied.
-        leftLift += flapThrustScale * (leftWingExtended - pLeftWingExtended);
-		rightLift += flapThrustScale * (rightWingExtended - pRightWingExtended);
+		if (leftWingExtended - pLeftWingExtended > 0)
+			leftLift += flapThrustScale * (leftWingExtended - pLeftWingExtended);
+		if (rightWingExtended - pRightWingExtended > 0)
+			rightLift += flapThrustScale * (rightWingExtended - pRightWingExtended);
 
         /// Rotational Dampening
         // Nudge bird rotation so it stays upright when no other forces are applied
