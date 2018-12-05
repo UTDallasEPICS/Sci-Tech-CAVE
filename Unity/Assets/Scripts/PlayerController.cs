@@ -164,8 +164,8 @@ public class PlayerController : MonoBehaviour {
 
         /// Input Control
 		// Set wing extension based on arm angle
-		leftWingExtended = Mathf.Cos(tracker.data.leftArmAngle);
-		rightWingExtended = Mathf.Cos(tracker.data.rightArmAngle);
+		leftWingExtended = Mathf.Cos(Mathf.PI * tracker.data.leftArmAngle / 180);
+		rightWingExtended = Mathf.Cos(Mathf.PI * tracker.data.rightArmAngle / 180);
 
         // Clamp wing extension 0 - 1
         leftWingExtended = Mathf.Clamp(leftWingExtended, 0, 1);
