@@ -123,7 +123,8 @@ public class SensorInterface : MonoBehaviour
 
         public override string ToString()
         {
-            return ""; // $"LA:{leftArmAngle:0.##}\n RA:{rightArmAngle:0.##}\n LE:{leftArmExtension:0.##}\n RE:{rightArmExtension:0.##}";
+			return "LA: " + Mathf.Round(leftArmAngle) + "\nRA: " + Mathf.Round(rightArmAngle);
+            //return ""; // $"LA:{leftArmAngle:0.##}\n RA:{rightArmAngle:0.##}\n LE:{leftArmExtension:0.##}\n RE:{rightArmExtension:0.##}";
         }
 
         public void Add(UserData a)
