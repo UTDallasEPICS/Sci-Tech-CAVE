@@ -70,11 +70,11 @@ public class PlayerController : MonoBehaviour {
     // Amount left/right wing is extended (0 - 1, 0 = against body, 1 = horizontal)
     private float leftWingExtended = 1;
     private float rightWingExtended = 1;
-	// Past values
-	private float pLeftWingExtended = 1, pRightWingExtended = 1;
     // Total lift under left/right wing
     private float leftLift = 0;
     private float rightLift = 0;
+	// Past tracker angle values
+	private float pLeftArmAngle = 0, pRightArmAngle = 0;
 
 	/// Object State
     // Rotation, read-only (0 upright, increses negative one direction, positive the other) (-180 to 180 rather than 0 to 360)
@@ -159,14 +159,9 @@ public class PlayerController : MonoBehaviour {
         }
 
         /// Input Control
-		//Save previous extension (o calculate difference)
-		pLeftWingExtended = leftWingExtended;
-		pRightWingExtended = rightWingExtended;
 		// Set wing extension based on arm angle
-		leftWingExtended = Mathf.Cos(tracker.data.leftArmExtension);
-		rightWingExtended = Mathf.Cos(tracker.data.rightArmExtension);
-
-        // Add sensor control input here //
+		leftWingExtended = Mathf.Cos(tracker.data.leftArmAngle);
+		rightWingExtended = Mathf.Cos(tracker.data.rightArmAngle);
 
         // Clamp wing extension 0 - 1
         leftWingExtended = Mathf.Clamp(leftWingExtended, 0, 1);
@@ -214,23 +209,16 @@ public class PlayerController : MonoBehaviour {
 
         /// Input Control - Wing Thrust
         // Generate thrust based on flapping wings. Just add it to the lift vector(s) to be applied.
-		if (leftWingExtended - pLeftWingExtended > 0)
-			leftLift += flapThrustScale * (pLeftWingExtended - leftWingExtended);
-		if (rightWingExtended - pRightWingExtended > 0)
-			rightLift += flapThrustScale * (pRightWingExtended - rightWingExtended);
+		if (pLeftArmAngle - tracker.data.leftArmAngle > 0)
+			leftLift += flapThrustScale * (pLeftArmAngle - tracker.data.leftArmAngle);
+		if (pRightArmAngle - tracker.data.rightArmAngle > 0)
+			rightLift += flapThrustScale * (pRightArmAngle - tracker.data.rightArmAngle);
 
         /// Rotational Dampening
         // Nudge bird rotation so it stays upright when no other forces are applied
-        print("--");
-        /*print(rotation.x);
-        print(rotation.y);
-        print(rotation.z);*/
         rb.AddRelativeTorque(Vector3.forward * -rotation.z * torqueDampenPosFactor.z); // z (roll)
         rb.AddRelativeTorque(Vector3.right * -rotation.x  * torqueDampenPosFactor.x); // x (pitch)
         rb.AddRelativeTorque(Vector3.up * -rotation.y  * torqueDampenPosFactor.y); // y (yaw)
-
-        // new test
-        print(transform.InverseTransformDirection(group.velocity));
         
         /// Move the Bird
         // Apply forces based on lift at left/right wing
@@ -239,6 +227,11 @@ public class PlayerController : MonoBehaviour {
 
         // Keep depth (distance from camera) fixed; prevent drift in forward / backward direction
         rb.transform.localPosition = new Vector3(rb.transform.localPosition.x,rb.transform.localPosition.y,0);
+		
+		/// Input Control
+		// Save previous tracker arm angles
+		pLeftArmAngle = tracker.data.leftArmAngle;
+		pRightArmAngle = tracker.data.rightArmAngle;
     }
 
 	// Add a relative force at a given (world) position on the object
