@@ -193,7 +193,7 @@ public class PlayerController : MonoBehaviour {
                 float ll = leftVel.z;
                 if (ll < 0) ll = 0;
 
-                //leftLift += leftWingExtended * (leftDrag*vertDragScale*0 + ll*liftScale);
+                leftLift += leftWingExtended * (leftDrag*vertDragScale*0 + ll*liftScale);
             // Right
                 // Velocity at right lift point
                 Vector3 rightVel = /*rb.GetPointVelocity(rightLiftPoint.TransformPoint(rightLiftPoint.position)) +*/ group.velocity;
@@ -209,7 +209,7 @@ public class PlayerController : MonoBehaviour {
                 float rl = rightVel.z;
                 if (rl < 0) rl = 0;
 
-                //rightLift += rightWingExtended * (rightDrag*vertDragScale*0 + rl*liftScale);
+                rightLift += rightWingExtended * (rightDrag*vertDragScale*0 + rl*liftScale);
 
         /// Input Control - Wing Thrust
         // Generate thrust based on flapping wings. Just add it to the lift vector(s) to be applied.
