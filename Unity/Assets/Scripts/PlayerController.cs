@@ -53,7 +53,7 @@ public class PlayerController : MonoBehaviour {
 
     /// Parameters: Scalars
     // Thrust caused by flapping wings
-    public float flapThrustScale = 1f;
+    public float flapThrustScale = 0.5f;
     // How much lift is generated
     public float liftScale = 0.4f;
     // How much vertical drag is generated
@@ -65,6 +65,10 @@ public class PlayerController : MonoBehaviour {
     // Left/right lift point
     private Transform leftLiftPoint;
     private Transform rightLiftPoint;
+
+	/// Paramters: Debug
+	// Whether to apply lift
+	public bool applyLift = true;
 
     /// Control State
     // Amount left/right wing is extended (0 - 1, 0 = against body, 1 = horizontal)
@@ -222,8 +226,10 @@ public class PlayerController : MonoBehaviour {
         
         /// Move the Bird
         // Apply forces based on lift at left/right wing
-        AddRelativeForceAtPosition(new Vector3(0, leftLift, 0), leftLiftPoint.position);
-        AddRelativeForceAtPosition(new Vector3(0, rightLift, 0), rightLiftPoint.position);
+		if (applyLift) {
+			AddRelativeForceAtPosition(new Vector3(0, leftLift, 0), leftLiftPoint.position);
+			AddRelativeForceAtPosition(new Vector3(0, rightLift, 0), rightLiftPoint.position);
+		}
 
         // Keep depth (distance from camera) fixed; prevent drift in forward / backward direction
         rb.transform.localPosition = new Vector3(rb.transform.localPosition.x,rb.transform.localPosition.y,0);

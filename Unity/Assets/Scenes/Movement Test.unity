@@ -613,7 +613,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 89f1770fb730be446b5cbf524f8ae13a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  flapThrustScale: 30
+  flapThrustScale: 0.5
   liftScale: 0.4
   vertDragScale: 1
   torqueDampenPosFactor: {x: 0.02, y: 0.12, z: 0.02}
