@@ -613,7 +613,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 89f1770fb730be446b5cbf524f8ae13a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  rb: {fileID: 951878569}
   flapThrustScale: 50
   liftScale: 0.4
   vertDragScale: 1
@@ -823,6 +822,7 @@ GameObject:
   - component: {fileID: 1357379710}
   - component: {fileID: 1357379709}
   - component: {fileID: 1357379708}
+  - component: {fileID: 1357379711}
   m_Layer: 0
   m_Name: Tracker
   m_TagString: Untagged
@@ -876,6 +876,17 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 4
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1357379711
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_GameObject: {fileID: 1357379707}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0553d2c8dca969e4b9687ceaf94767d1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!4 &1368697304 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 400122, guid: f2dcbf14324d47a499783221451475c6,
