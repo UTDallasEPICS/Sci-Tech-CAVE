@@ -70,6 +70,8 @@ public class PlayerController : MonoBehaviour {
     // Amount left/right wing is extended (0 - 1, 0 = against body, 1 = horizontal)
     private float leftWingExtended = 1;
     private float rightWingExtended = 1;
+	// Past values
+	private float pLeftWingExtended = 1, pRightWingExtended = 1;
     // Total lift under left/right wing
     private float leftLift = 0;
     private float rightLift = 0;
@@ -207,9 +209,10 @@ public class PlayerController : MonoBehaviour {
 
                 rightLift += rightWingExtended * (rightDrag*vertDragScale*0 + rl*liftScale);
 
-        /// Wing Thrust
+        /// Input Control - Wing Thrust
         // Generate thrust based on flapping wings. Just add it to the lift vector(s) to be applied.
-        //
+        leftLift += flapThrustScale * (leftWingExtended - pLeftWingExtended);
+		rightLift += flapThrustScale * (rightWingExtended - pRightWingExtended);
 
         /// Rotational Dampening
         // Nudge bird rotation so it stays upright when no other forces are applied
