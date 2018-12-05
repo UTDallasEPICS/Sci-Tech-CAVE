@@ -191,7 +191,7 @@ public class PlayerController : MonoBehaviour {
                 float ll = leftVel.z;
                 if (ll < 0) ll = 0;
 
-                leftLift += leftWingExtended * (leftDrag*vertDragScale*0 + ll*liftScale);
+                //leftLift += leftWingExtended * (leftDrag*vertDragScale*0 + ll*liftScale);
             // Right
                 // Velocity at right lift point
                 Vector3 rightVel = /*rb.GetPointVelocity(rightLiftPoint.TransformPoint(rightLiftPoint.position)) +*/ group.velocity;
@@ -207,14 +207,14 @@ public class PlayerController : MonoBehaviour {
                 float rl = rightVel.z;
                 if (rl < 0) rl = 0;
 
-                rightLift += rightWingExtended * (rightDrag*vertDragScale*0 + rl*liftScale);
+                //rightLift += rightWingExtended * (rightDrag*vertDragScale*0 + rl*liftScale);
 
         /// Input Control - Wing Thrust
         // Generate thrust based on flapping wings. Just add it to the lift vector(s) to be applied.
 		if (leftWingExtended - pLeftWingExtended > 0)
-			leftLift += flapThrustScale * (leftWingExtended - pLeftWingExtended);
+			leftLift += flapThrustScale * (pLeftWingExtended - leftWingExtended);
 		if (rightWingExtended - pRightWingExtended > 0)
-			rightLift += flapThrustScale * (rightWingExtended - pRightWingExtended);
+			rightLift += flapThrustScale * (pRightWingExtended - rightWingExtended);
 
         /// Rotational Dampening
         // Nudge bird rotation so it stays upright when no other forces are applied
