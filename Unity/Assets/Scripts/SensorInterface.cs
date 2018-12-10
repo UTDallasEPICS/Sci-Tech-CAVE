@@ -1,28 +1,48 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using nt = nuitrack;
+using System.IO;
 
 public class SensorInterface : MonoBehaviour
 {
-	// The data to export
-	public UserData data = new UserData(0, 0, 0, 0);
-
+    // The data to export
+    public UserData data = new UserData(0, 0, 0, 0);
     string message = "";
-    MovingAverage av = new MovingAverage(5);
+    public bool showDebugGUI = false;
+    MovingAverage av;
+    Skelly sk;
+    FileLogger rElev;
+    DisposableList disList = new DisposableList();
+
+    void Start()
+    {
+        av = new MovingAverage(4, 0.1f, 300000f);
+        disList.Add(av);
+
+        sk = new Skelly(500f, true);
+
+        rElev = new FileLogger("C:\\\\Users\\noah-\\Desktop\\rElev.txt");
+        disList.Add(rElev);
+    }
 
     void Update()
     {
         if (CurrentUserTracker.CurrentUser != 0)
         {
-			// Update the user data
-			data = ProcessSkeleton(CurrentUserTracker.CurrentSkeleton);
-            message = "User found: " + data;
+            // Update the user data
+            data = ProcessSkeleton(CurrentUserTracker.CurrentSkeleton);
+            if (showDebugGUI)
+            {
+                message = "User found: " + data;
+            }
         }
         else
         {
-            message = "User not found";
+            if (showDebugGUI)
+            {
+                message = "User not found";
+            }
         }
     }
 
@@ -34,30 +54,39 @@ public class SensorInterface : MonoBehaviour
         GUILayout.Label(message);
     }
 
+    void OnDestroy()
+    {
+        disList.Dispose();
+        //av.Dispose();
+    }
+
     // Update is called once per frame
-    UserData ProcessSkeleton(nuitrack.Skeleton skel)
+    UserData ProcessSkeleton(nt.Skeleton skel)
     {
         Dictionary<nt.JointType, Vector3> convSkel = ConvertSkeleton(skel);
 
-        Vector3 collarTorso = convSkel[nt.JointType.Torso] - convSkel[nt.JointType.RightCollar];
-        Vector3 collarShoulder = convSkel[nt.JointType.RightShoulder] - convSkel[nt.JointType.RightCollar];
+        sk.Update(skel);
+
+
+        Vector3 collarTorso = sk[nt.JointType.Torso].pos - sk[nt.JointType.RightCollar].pos;
+        Vector3 collarShoulder = sk[nt.JointType.RightShoulder].pos - sk[nt.JointType.RightCollar].pos;
 
         var bodyPlane = Vector3.Cross(collarTorso, collarShoulder);
 
 
-        Vector3 shoulderVector = convSkel[nt.JointType.RightShoulder] - convSkel[nt.JointType.LeftShoulder];
+        Vector3 shoulderVector = sk[nt.JointType.RightShoulder].pos - sk[nt.JointType.LeftShoulder].pos;
 
-        Vector3 rightArmTip = GetPreferredJoint(skel.GetJoint(nt.JointType.RightHand), skel.GetJoint(nt.JointType.RightElbow));
-        Vector3 leftArmTip = GetPreferredJoint(skel.GetJoint(nt.JointType.LeftHand), skel.GetJoint(nt.JointType.LeftElbow));
-        Vector3 rightArmVec = rightArmTip - convSkel[nt.JointType.RightShoulder];
-        Vector3 leftArmVec = leftArmTip - convSkel[nt.JointType.LeftShoulder];
+        Vector3 rightArmTip = GetPreferredJoint(sk[nt.JointType.RightHand], sk[nt.JointType.RightElbow]);
+        Vector3 leftArmTip = GetPreferredJoint(sk[nt.JointType.LeftHand], sk[nt.JointType.LeftElbow]);
+        Vector3 rightArmVec = rightArmTip - sk[nt.JointType.RightShoulder].pos;
+        Vector3 leftArmVec = leftArmTip - sk[nt.JointType.LeftShoulder].pos;
 
         float rightArmAngle = -Vector3.SignedAngle(rightArmVec, shoulderVector, bodyPlane);
         float leftArmAngle = Vector3.SignedAngle(leftArmVec, -shoulderVector, bodyPlane);
 
 
-        float rightArmMaxExtension = Vector3.Magnitude(rightArmTip - convSkel[nt.JointType.RightElbow]) + Vector3.Magnitude(convSkel[nt.JointType.RightElbow] - convSkel[nt.JointType.RightShoulder]);
-        float LeftArmMaxExtension = Vector3.Magnitude(leftArmTip - convSkel[nt.JointType.LeftElbow]) + Vector3.Magnitude(convSkel[nt.JointType.LeftElbow] - convSkel[nt.JointType.LeftShoulder]);
+        float rightArmMaxExtension = Vector3.Magnitude(rightArmTip - sk[nt.JointType.RightElbow].pos) + Vector3.Magnitude(sk[nt.JointType.RightElbow].pos - sk[nt.JointType.RightShoulder].pos);
+        float LeftArmMaxExtension = Vector3.Magnitude(leftArmTip - sk[nt.JointType.LeftElbow].pos) + Vector3.Magnitude(sk[nt.JointType.LeftElbow].pos - sk[nt.JointType.LeftShoulder].pos);
 
         float rightArmExtension = Vector3.ProjectOnPlane(rightArmVec, bodyPlane).magnitude / rightArmMaxExtension;
         float leftArmExtension = Vector3.ProjectOnPlane(leftArmVec, bodyPlane).magnitude / LeftArmMaxExtension;
@@ -99,12 +128,7 @@ public class SensorInterface : MonoBehaviour
         }
     }
 
-    private T Max<T>(T o1, T o2) where T : IComparable<T>
-    {
-        return (o1.CompareTo(o2) > 0 ? o1 : o2);
-    }
-
-    public struct UserData : ICloneable
+    public struct UserData
     {
         public float rightArmAngle, rightArmExtension, leftArmAngle, leftArmExtension;
 
@@ -116,15 +140,9 @@ public class SensorInterface : MonoBehaviour
             this.leftArmExtension = leftArmExtension;
         }
 
-        public object Clone()
-        {
-            return new UserData(rightArmAngle, rightArmExtension, leftArmAngle, leftArmExtension);
-        }
-
         public override string ToString()
         {
-			return "LA: " + Mathf.Round(leftArmAngle) + "\nRA: " + Mathf.Round(rightArmAngle);
-            //return ""; // $"LA:{leftArmAngle:0.##}\n RA:{rightArmAngle:0.##}\n LE:{leftArmExtension:0.##}\n RE:{rightArmExtension:0.##}";
+            return "LA: " + Mathf.Round(leftArmAngle) + "\nRA: " + Mathf.Round(rightArmAngle);
         }
 
         public void Add(UserData a)
@@ -142,6 +160,24 @@ public class SensorInterface : MonoBehaviour
             leftArmAngle /= a;
             leftArmExtension /= a;
         }
+
+        public void Interp(UserData a, float t)
+        {
+            rightArmAngle = Mathf.Lerp(rightArmAngle, a.rightArmAngle, t);
+            leftArmAngle = Mathf.Lerp(leftArmAngle, a.leftArmAngle, t);
+            rightArmExtension = Mathf.Lerp(rightArmExtension, a.rightArmExtension, t);
+            leftArmExtension = Mathf.Lerp(leftArmExtension, a.leftArmExtension, t);
+        }
+
+        public static UserData operator *(float a, UserData b)
+        {
+            return new UserData(b.rightArmAngle * a, b.rightArmExtension * a, b.leftArmAngle * a, b.leftArmExtension * a);
+        }
+
+        public static UserData operator +(UserData a, UserData b)
+        {
+            return new UserData(a.rightArmAngle + b.rightArmAngle, a.rightArmExtension + b.rightArmExtension, a.leftArmAngle + b.leftArmAngle, a.leftArmExtension + b.leftArmExtension);
+        }
     }
 
     private Vector3 GetPreferredJoint(nt.Joint hand, nt.Joint elbow)
@@ -149,25 +185,57 @@ public class SensorInterface : MonoBehaviour
         return (hand.Confidence >= elbow.Confidence ? hand : elbow).Real.ToVector3();
     }
 
-    private class MovingAverage
+    private Vector3 GetPreferredJoint(Joint hand, Joint elbow)
     {
+        return (hand.confidence >= elbow.confidence) ? hand.pos : elbow.pos;
+    }
+
+    private class MovingAverage : IDisposable
+    {
+        private FileLogger raLogRaw, raAvLog;
         private int SampleCount;
         private UserData[] Samples;
-        private bool upToDate = false;
+        private bool upToDate = false, log;
         private int index = 0;
+        private float interpTime, errorThreshold;
         private UserData average;
+        private DisposableList disList = new DisposableList();
 
-        public MovingAverage(int sampleCount)
+        public MovingAverage(int sampleCount, float interpTime = 0f, float errorThreshold = float.PositiveInfinity, bool log = false)
         {
             SampleCount = sampleCount;
             Samples = new UserData[SampleCount];
+            this.interpTime = interpTime;
+            this.errorThreshold = errorThreshold;
+            this.log = log;
+            if (log)
+            {
+                raLogRaw = new FileLogger(Path.Combine(Application.dataPath, "raRaw.txt"));
+                disList.Add(raLogRaw);
+                raAvLog = new FileLogger(Path.Combine(Application.dataPath, "raAv.txt"));
+                disList.Add(raAvLog);
+            }
+
         }
 
         public void PushSample(UserData sample)
         {
+            if (Mathf.Abs(Samples[index].leftArmAngle - sample.leftArmAngle) > errorThreshold || Mathf.Abs(Samples[index].rightArmAngle - sample.rightArmAngle) > errorThreshold)
+            {
+                //DEBUG
+                //print("Position error detected, smoothing...");
+                var t = Samples[index];
+                t.Interp(sample, interpTime);
+                sample = t;
+            }
             Samples[index] = sample;
             index = (index + 1) % Samples.Length;
             upToDate = false;
+
+            if (log)
+            {
+                raLogRaw.Log(sample.rightArmAngle);
+            }
         }
 
         public UserData GetAverage()
@@ -182,12 +250,160 @@ public class SensorInterface : MonoBehaviour
                 average.Divide(SampleCount);
             }
 
+            if (log)
+            {
+                raAvLog.Log(average.rightArmAngle);
+            }
             return average;
         }
 
-        public void SetSampleCount()
+        public void Dispose()
         {
+            if (log)
+            {
+                disList.Dispose();
+                //raAvLog.Dispose();
+                //raLogRaw.Dispose();
+            }
+        }
+    }
 
+    class Vector3MovingAverage
+    {
+        private Vector3[] samples;
+        private int index = 0;
+        private Vector3 average;
+        bool upToDate;
+
+        public Vector3MovingAverage(int size)
+        {
+            samples = new Vector3[size];
+            upToDate = false;
+        }
+
+        public Vector3 PushSample(Vector3 samp)
+        {
+            samples[index] = samp;
+            index = (index + 1) % samples.Length;
+            upToDate = false;
+            return samp;
+        }
+
+        public Vector3 GetAverage()
+        {
+            if (!upToDate)
+            {
+                var output = new Vector3();
+                foreach (var s in samples)
+                {
+                    output += s;
+                }
+                output /= samples.Length;
+            }
+
+            return average;
+        }
+    }
+
+    class Skelly
+    {
+        private Dictionary<nt.JointType, Joint> joints;
+        private float maxVelocity;
+        private bool log;
+
+        public Skelly(float maxVelocity, bool log = false)
+        {
+            this.maxVelocity = maxVelocity;
+            this.log = log;
+
+            joints = new Dictionary<nt.JointType, Joint>();
+
+            foreach (nuitrack.JointType jt in (nuitrack.JointType[])System.Enum.GetValues(typeof(nuitrack.JointType)))
+            {
+                joints[jt] = new Joint(new Vector3(0, 0, 0), 0f);
+            }
+        }
+
+        public Joint this[nt.JointType j]
+        {
+            get { return joints[j]; }
+            set { joints[j] = value; }
+        }
+
+        public bool Update(nt.Skeleton newData)
+        {
+            bool error = false;
+
+            foreach (nuitrack.JointType jt in (nuitrack.JointType[])System.Enum.GetValues(typeof(nuitrack.JointType)))
+            {
+                Vector3 newJPos = newData.GetJoint(jt).Real.ToVector3();
+                float newJConf = newData.GetJoint(jt).Confidence;
+
+                if (DistanceTraveled(joints[jt], newJPos) > maxVelocity * Time.deltaTime)
+                {
+                    joints[jt] = new Joint(joints[jt].pos + Vector3.Normalize(newJPos - joints[jt].pos) * maxVelocity * Time.deltaTime, newJConf);
+                    error = true;
+                }
+                else
+                {
+                    joints[jt] = new Joint(newJPos, newJConf);
+                }
+            }
+
+            if (log)
+            {
+                Debug.Log("Max joint velocity exceeded, interpolating");
+            }
+
+            return error;
+        }
+
+        public Dictionary<nt.JointType, Joint> GetValue()
+        {
+            return new Dictionary<nt.JointType, Joint>(joints);
+        }
+
+        private static float DistanceTraveled(Joint a, Vector3 b)
+        {
+            return Vector3.Magnitude(b - a.pos);
+        }
+    }
+
+    class FileLogger : IDisposable
+    {
+        private StreamWriter stream;
+
+        public FileLogger(string file)
+        {
+            stream = new StreamWriter(new BufferedStream(new FileStream(file, FileMode.Append)));
+        }
+
+        public void Dispose()
+        {
+            stream.Dispose();
+        }
+
+        public void Log(float f)
+        {
+            stream.WriteLine(f);
+        }
+    }
+
+    class DisposableList : List<IDisposable>, IDisposable
+    {
+        public void Dispose()
+        {
+            foreach (var o in this)
+            {
+                try
+                {
+                    o.Dispose();
+                }
+                catch (Exception e)
+                {
+
+                }
+            }
         }
     }
 }
