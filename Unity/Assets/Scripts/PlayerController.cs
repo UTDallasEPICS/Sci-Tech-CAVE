@@ -1,5 +1,4 @@
-﻿
-/*
+﻿/*
  * Bird Player Controller
  * 
  * This player contoller is for birds that are children of a player group (or "flock"). The player group 
@@ -10,14 +9,17 @@
  * from world space, and the movement will not seem realistic.
  * 
  * The bird movement and movement controls are simplified.
- * Lift occurs at two fixed points on the left and right side of the bird where its wings would be when fully 
- * extended. The amount of lift created at each point depends on how much that wing is extended outward (and the 
- * bird's speed, of course).
- * Upward force is created at a lift point when the corresponding wing is quickly moved downward. The same effect 
- * happens when the wing is moved wuickly upward, but dampened.
+ * Wing forces occur at two fixed points on the left and right side of the bird where its wings would be when fully 
+ * extended. The amount of lift created at each point depends on how much that wing is extended outward and the 
+ * bird's forward speed.
+ * A thrust force is created at a wing when the corresponding wing is quickly moved downward. The same effect 
+ * happens when the wing is moved quickly upward, but dampened.
+ * A drag force is created at each wing based on the wing's extension and vertical speed, counteracting large 
+ * velocities and making the bird's flight more stable. This is why this variable drag is important in addition to 
+ * Unity's builtin translational drag.
  * 
  * Bird object settings (for the object to which this controller is attached):
- * The bird should have medium drag, about 0.5 translational, 3 rotational.
+ * The bird should have medium drag, about 0.5 translational, 5 angular.
  * The bird's coordinate axes should be unmodified. The forward vector faces away from the camera, the right 
  * vector faces right, etc.
  * 
@@ -29,18 +31,13 @@ using UnityEngine;
 
 public class PlayerController : MonoBehaviour {
 
-    /*  TODO
-     * Generate lift based on bird's forward speed and the amount its wings are extended
+    /* TODO (time allowing):
      * Take velocity vector from last frame and rotate it so it is always relative to camera
-     * Rotation is lockat right now. Allow some rotation for realistic movement.
-     * As above, for all constants; use dampening instead of setting constants for realistic movement.
-     *   
-     * Misc unrelated:
+	 *    (otherwise the component perpendicular normal to the camera is lost; noticeable in sharp turns)
+     * For all constants, use dampening instead of setting constants for realistic movement.
+	 * Elsewhere:
      * Slight wind particle effect, intensity and speed based on group's speed
-     * Slight wind trail effect
-     * Download (free) terrain
-     * Integrate bird animations
-     * 
+     * Slight wing trail effect
      */
 
     /// External References
@@ -51,36 +48,44 @@ public class PlayerController : MonoBehaviour {
 	// Reference to the component that obtains motion tracking info
 	private SensorInterface tracker;
 
-    /// Parameters: Scalars
-    // Thrust caused by flapping wings
-    public float flapThrustScale = 0.5f;
-    // How much lift is generated
-    public float liftScale = 0.4f;
-    // How much vertical drag is generated
-    public float vertDragScale = 1f;
-    // Torque dampening factor (also edit rotational drag)
-    public Vector3 torqueDampenPosFactor = new Vector3(0.02f, 0.02f, 0.02f);
-
-    /// Parameters: Child References
+	/// Child References
     // Left/right lift point
     private Transform leftLiftPoint;
     private Transform rightLiftPoint;
 
+    /// Parameters: Scalars
+    // Thrust caused by flapping wings
+    public float flapThrustScale = 2f;
+    // How much lift is generated
+    public float liftScale = 0.48f;
+    // How much vertical drag is generated
+    public float vertDragScale = 1f;
+    // Torque dampening factor (Position-based; Edit Unity's builtin angular drag for velocity-based drag)
+    public Vector3 torqueDampenPosFactor = new Vector3(0.02f, 0.12f, 0.20f);
+
 	/// Paramters: Debug
-	// Whether to apply lift
+	// Whether to calculate lift
 	public bool applyLift = true;
+	// Whether to calculate thrust
+	public bool applyThrust = true;
+	// Whether to apply the wing forces
+	public bool applyWingForces = true;
 
     /// Control State
     // Amount left/right wing is extended (0 - 1, 0 = against body, 1 = horizontal)
     private float leftWingExtended = 1;
     private float rightWingExtended = 1;
-    // Total lift under left/right wing
+    // Total force under left/right wing
     private float leftWingForce = 0;
     private float rightWingForce = 0;
 	// Past tracker angle values
 	private float pLeftArmAngle = 0, pRightArmAngle = 0;
+	// Tracker poll rate (poll/s)
+	private const int trackerPollRate = 30;
+	// Maximum angle delta (degree/s / frames/s = degree/frame) beyond which we will assume data is erroneous
+	private const float maxAngleDelta = 1000 / trackerPollRate;
 
-	/// Object State
+	/// Physical State
     // Rotation, read-only (0 upright, increses negative one direction, positive the other) (-180 to 180 rather than 0 to 360)
     private Vector3 rotation = new Vector3(0, 0, 0);
 	// Base velocity (from the flight group) of the bird in local coordinates. Does not include local velocity due to physics.
@@ -120,7 +125,7 @@ public class PlayerController : MonoBehaviour {
     // FixedUpdate is called after a fixed amount of time (good for adding forces).
     void FixedUpdate() {
         /// Get Physical State
-		// Get rotation, constrin -180 to 180
+		// Get rotation, constrain -180 to 180
         rotation.x = rb.transform.localRotation.eulerAngles.x < 180 ? rb.transform.localRotation.eulerAngles.x : rb.transform.localRotation.eulerAngles.x - 360;
         rotation.y = rb.transform.localRotation.eulerAngles.y < 180 ? rb.transform.localRotation.eulerAngles.y : rb.transform.localRotation.eulerAngles.y - 360;
         rotation.z = rb.transform.localRotation.eulerAngles.z < 180 ? rb.transform.localRotation.eulerAngles.z : rb.transform.localRotation.eulerAngles.z - 360;
@@ -208,18 +213,33 @@ public class PlayerController : MonoBehaviour {
 				if (rightLift < 0) rightLift = 0;
 			// Apply the lift
 			if (applyLift) {
-				leftWingForce += leftWingExtended * (leftDrag*vertDragScale*0 + leftLift*liftScale);
-                rightWingForce += rightWingExtended * (rightDrag*vertDragScale*0 + rightLift*liftScale);
+				leftWingForce += leftWingExtended * (leftDrag*vertDragScale + leftLift*liftScale);
+                rightWingForce += rightWingExtended * (rightDrag*vertDragScale + rightLift*liftScale);
 			}
-			/// DEBUG - remove
-			print(leftWingExtended);
 
         /// Input Control - Wing Thrust
         // Generate thrust based on flapping wings.
-		if (pLeftArmAngle - tracker.data.leftArmAngle > 0)
-			leftWingForce += flapThrustScale * (pLeftArmAngle - tracker.data.leftArmAngle);
-		if (pRightArmAngle - tracker.data.rightArmAngle > 0)
-			rightWingForce += flapThrustScale * (pRightArmAngle - tracker.data.rightArmAngle);
+		if (applyThrust) {
+			// If the flapping motion is in the downward direction and within reasonable range, apply thrust force
+			float leftDelta = pLeftArmAngle - tracker.data.leftArmAngle;
+			float rightDelta = pRightArmAngle - tracker.data.rightArmAngle;
+			// If angle deltas are not within reasonable range, data is invalid. Ignore it / do nothing
+			// (the data are interdependent; cannot tell user intention if one side is undeterminate)
+			if (leftDelta < maxAngleDelta && rightDelta < maxAngleDelta) {
+				// If the flapping motion is in the downward direction, apply a thrust force
+				if (leftDelta > 0)
+					leftWingForce += flapThrustScale * leftDelta;
+				if (rightDelta > 0)
+					rightWingForce += flapThrustScale * rightDelta;
+			}
+		}
+		//old
+		//if (applyThrust) {
+		//	if (pLeftArmAngle - tracker.data.leftArmAngle > 0)
+		//		leftWingForce += flapThrustScale * (pLeftArmAngle - tracker.data.leftArmAngle);
+		//	if (pRightArmAngle - tracker.data.rightArmAngle > 0)
+		//		rightWingForce += flapThrustScale * (pRightArmAngle - tracker.data.rightArmAngle);
+		//}
 
         /// Rotational Dampening
         // Nudge bird rotation so it stays upright when no other forces are applied
@@ -229,8 +249,10 @@ public class PlayerController : MonoBehaviour {
         
         /// Move the Bird
         // Apply forces based on lift at left/right wing
-		AddRelativeForceAtPosition(new Vector3(0, leftWingForce, 0), leftLiftPoint.position);
-		AddRelativeForceAtPosition(new Vector3(0, rightWingForce, 0), rightLiftPoint.position);
+		if (applyWingForces) {
+			AddRelativeForceAtPosition(new Vector3(0, leftWingForce, 0), leftLiftPoint.position);
+			AddRelativeForceAtPosition(new Vector3(0, rightWingForce, 0), rightLiftPoint.position);
+		}
 
         // Keep depth (distance from camera) fixed; prevent drift in forward / backward direction
         rb.transform.localPosition = new Vector3(rb.transform.localPosition.x,rb.transform.localPosition.y,0);
@@ -248,4 +270,11 @@ public class PlayerController : MonoBehaviour {
 		// Apply force
         rb.AddForceAtPosition(relativeForce, worldPosition);
     }
+
+	public float GetLeftWingForce() {
+		return leftWingForce;
+	}
+	public float GetRightWingForce() {
+		return rightWingForce;
+	}
 }

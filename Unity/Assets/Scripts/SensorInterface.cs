@@ -55,6 +55,9 @@ public class SensorInterface : MonoBehaviour
         float rightArmAngle = -Vector3.SignedAngle(rightArmVec, shoulderVector, bodyPlane);
         float leftArmAngle = Vector3.SignedAngle(leftArmVec, -shoulderVector, bodyPlane);
 
+		// Clamp angles to -90 to 90
+		leftArmAngle = Mathf.Clamp(leftArmAngle, -90, 90);
+		rightArmAngle = Mathf.Clamp(rightArmAngle, -90, 90);
 
         float rightArmMaxExtension = Vector3.Magnitude(rightArmTip - convSkel[nt.JointType.RightElbow]) + Vector3.Magnitude(convSkel[nt.JointType.RightElbow] - convSkel[nt.JointType.RightShoulder]);
         float LeftArmMaxExtension = Vector3.Magnitude(leftArmTip - convSkel[nt.JointType.LeftElbow]) + Vector3.Magnitude(convSkel[nt.JointType.LeftElbow] - convSkel[nt.JointType.LeftShoulder]);
@@ -63,7 +66,7 @@ public class SensorInterface : MonoBehaviour
         float leftArmExtension = Vector3.ProjectOnPlane(leftArmVec, bodyPlane).magnitude / LeftArmMaxExtension;
 
         UserData output = new UserData(rightArmAngle, rightArmExtension, leftArmAngle, leftArmExtension);
-
+		//return output;
         av.PushSample(output);
 
         return av.GetAverage();

@@ -39,14 +39,15 @@ public class CameraControl : MonoBehaviour
 
     void CreateCameras()
     {
-        var baseCamera = GameObject.FindWithTag("MainCamera");
+        //var baseCamera = GameObject.FindWithTag("MainCamera");
 
 
         for (int i = 0; i < displayConfig.displays.Count; i++)
         {
             var cameraGameObject = new GameObject("Camera_A" + i);
             cameraGameObject.transform.parent = gameObject.transform;
-            cameraGameObject.transform.Translate(gameObject.transform.transform.position);
+            //cameraGameObject.transform.Translate(gameObject.transform.transform.position);
+			cameraGameObject.transform.localPosition = new Vector3(0, 0, 0);
             var camera = cameraGameObject.AddComponent<Camera>();
             camera.ResetProjectionMatrix();
             cameras.Add(camera);
