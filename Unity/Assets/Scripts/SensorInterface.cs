@@ -8,22 +8,40 @@ public class SensorInterface : MonoBehaviour
 {
     // The data to export
     public UserData data = new UserData(0, 0, 0, 0);
-    string message = "";
-    public bool showDebugGUI = false;
-    MovingAverage av;
-    Skelly sk;
-    FileLogger rElev;
-    DisposableList disList = new DisposableList();
+
+    // Editor Controls
+    public bool showDebugGUI = false, clipSmallAngles = true, logTrackingData = false;
+    public float smallAngleThreshold = 9f;
+    public float maxJointVelocity = 1000f;
+
+    private string message = "";
+    private string logPath;
+    private MovingAverage av;
+    private Skelly sk;
+    private NamedLogger nLog;
+    private DisposableList disList = new DisposableList();
 
     void Start()
     {
-        av = new MovingAverage(4, 0.1f, 300000f);
+        av = new MovingAverage(4, 0.1f, 300000f, logTrackingData);
         disList.Add(av);
 
-        sk = new Skelly(500f, true);
+        logPath = Path.Combine(Application.dataPath, "Logs");
 
-        rElev = new FileLogger("C:\\\\Users\\noah-\\Desktop\\rElev.txt");
-        disList.Add(rElev);
+
+        nLog = new NamedLogger(
+            new Dictionary<string, string> {
+                { "rAngle", "rAngle" },
+                { "lAngle", "lAngle" },
+                { "rElev", "rElev" },
+                { "rHorizX", "rHorizX" },
+                { "rHorizZ", "rHorizZ" }
+            },
+            logTrackingData, logPath);
+
+        disList.Add(nLog);
+
+        sk = new Skelly(maxJointVelocity, true);
     }
 
     void Update()
@@ -32,47 +50,45 @@ public class SensorInterface : MonoBehaviour
         {
             // Update the user data
             data = ProcessSkeleton(CurrentUserTracker.CurrentSkeleton);
-            if (showDebugGUI)
-            {
-                message = "User found: " + data;
-            }
+            message = "User found: " + data;
         }
         else
         {
-            if (showDebugGUI)
-            {
-                message = "User not found";
-            }
+            message = "User not found";
         }
     }
 
     /// DEBUG Display the message on the screen
     void OnGUI()
     {
-        GUI.color = Color.red;
-        GUI.skin.label.fontSize = 50;
-        GUILayout.Label(message);
+        if (showDebugGUI)
+        {
+            GUI.color = Color.red;
+            GUI.skin.label.fontSize = 50;
+            GUILayout.Label(message);
+        }
     }
 
     void OnDestroy()
     {
         disList.Dispose();
-        //av.Dispose();
     }
 
     // Update is called once per frame
     UserData ProcessSkeleton(nt.Skeleton skel)
     {
+        nLog.Log("rElev", skel.GetJoint(nt.JointType.RightHand).Real.ToVector3().y);
+        nLog.Log("rHorizX", skel.GetJoint(nt.JointType.RightHand).Real.ToVector3().x);
+        nLog.Log("rHorizZ", skel.GetJoint(nt.JointType.RightHand).Real.ToVector3().z);
+
         Dictionary<nt.JointType, Vector3> convSkel = ConvertSkeleton(skel);
 
         sk.Update(skel);
-
 
         Vector3 collarTorso = sk[nt.JointType.Torso].pos - sk[nt.JointType.RightCollar].pos;
         Vector3 collarShoulder = sk[nt.JointType.RightShoulder].pos - sk[nt.JointType.RightCollar].pos;
 
         var bodyPlane = Vector3.Cross(collarTorso, collarShoulder);
-
 
         Vector3 shoulderVector = sk[nt.JointType.RightShoulder].pos - sk[nt.JointType.LeftShoulder].pos;
 
@@ -81,9 +97,11 @@ public class SensorInterface : MonoBehaviour
         Vector3 rightArmVec = rightArmTip - sk[nt.JointType.RightShoulder].pos;
         Vector3 leftArmVec = leftArmTip - sk[nt.JointType.LeftShoulder].pos;
 
-        float rightArmAngle = -Vector3.SignedAngle(rightArmVec, shoulderVector, bodyPlane);
-        float leftArmAngle = Vector3.SignedAngle(leftArmVec, -shoulderVector, bodyPlane);
+        float rightArmAngle = clipSmallAngle(-Vector3.SignedAngle(rightArmVec, shoulderVector, bodyPlane));
+        float leftArmAngle = clipSmallAngle(Vector3.SignedAngle(leftArmVec, -shoulderVector, bodyPlane));
 
+        nLog.Log("rAngle", rightArmAngle);
+        nLog.Log("lAngle", leftArmAngle);
 		// Clamp angles to -90 to 90
 		leftArmAngle = Mathf.Clamp(leftArmAngle, -90, 90);
 		rightArmAngle = Mathf.Clamp(rightArmAngle, -90, 90);
@@ -99,6 +117,27 @@ public class SensorInterface : MonoBehaviour
         av.PushSample(output);
 
         return av.GetAverage();
+    }
+
+    private float clipSmallAngle(float angle)
+    {
+        if (!clipSmallAngles)
+        {
+            return angle;
+        }
+
+        if (angle > -smallAngleThreshold && angle < smallAngleThreshold)
+        {
+            return 0;
+        }
+        else if (angle < 0)
+        {
+            return angle + smallAngleThreshold;
+        }
+        else
+        {
+            return angle - smallAngleThreshold;
+        }
     }
 
     Dictionary<nuitrack.JointType, Vector3> ConvertSkeleton(nuitrack.Skeleton skel)
@@ -196,6 +235,7 @@ public class SensorInterface : MonoBehaviour
     private class MovingAverage : IDisposable
     {
         private FileLogger raLogRaw, raAvLog;
+
         private int SampleCount;
         private UserData[] Samples;
         private bool upToDate = false, log;
@@ -203,20 +243,31 @@ public class SensorInterface : MonoBehaviour
         private float interpTime, errorThreshold;
         private UserData average;
         private DisposableList disList = new DisposableList();
+        private NamedLogger nLog;
 
         public MovingAverage(int sampleCount, float interpTime = 0f, float errorThreshold = float.PositiveInfinity, bool log = false)
         {
             SampleCount = sampleCount;
             Samples = new UserData[SampleCount];
+
+
             this.interpTime = interpTime;
             this.errorThreshold = errorThreshold;
             this.log = log;
+
             if (log)
             {
-                raLogRaw = new FileLogger(Path.Combine(Application.dataPath, "raRaw.txt"));
-                disList.Add(raLogRaw);
-                raAvLog = new FileLogger(Path.Combine(Application.dataPath, "raAv.txt"));
-                disList.Add(raAvLog);
+                nLog = new NamedLogger(
+                    new Dictionary<string, string> {
+                        { "raLogRaw", "raLogRaw" },
+                        { "raAvLog", "raAvLog" }
+                    },
+                    log, Path.Combine(Application.dataPath, "Logs"));
+
+                disList.Add(nLog);
+
+                raLogRaw = nLog["raLogRaw"];
+                raAvLog = nLog["raLogRaw"];
             }
 
         }
@@ -265,46 +316,7 @@ public class SensorInterface : MonoBehaviour
             if (log)
             {
                 disList.Dispose();
-                //raAvLog.Dispose();
-                //raLogRaw.Dispose();
             }
-        }
-    }
-
-    class Vector3MovingAverage
-    {
-        private Vector3[] samples;
-        private int index = 0;
-        private Vector3 average;
-        bool upToDate;
-
-        public Vector3MovingAverage(int size)
-        {
-            samples = new Vector3[size];
-            upToDate = false;
-        }
-
-        public Vector3 PushSample(Vector3 samp)
-        {
-            samples[index] = samp;
-            index = (index + 1) % samples.Length;
-            upToDate = false;
-            return samp;
-        }
-
-        public Vector3 GetAverage()
-        {
-            if (!upToDate)
-            {
-                var output = new Vector3();
-                foreach (var s in samples)
-                {
-                    output += s;
-                }
-                output /= samples.Length;
-            }
-
-            return average;
         }
     }
 
@@ -375,20 +387,105 @@ public class SensorInterface : MonoBehaviour
     class FileLogger : IDisposable
     {
         private StreamWriter stream;
+        private bool enable;
 
-        public FileLogger(string file)
+        public FileLogger(string file, bool enable = true)
         {
-            stream = new StreamWriter(new BufferedStream(new FileStream(file, FileMode.Append)));
+            this.enable = enable;
+            if (enable)
+            {
+                try
+                {
+                    (new FileInfo(file)).Directory.Create();
+                    stream = new StreamWriter(new BufferedStream(new FileStream(file, FileMode.Append)));
+                }
+                catch (Exception e)
+                {
+                    Debug.Log("Unable to start logger for: " + file);
+                    enable = false;
+                    stream = null;
+                }
+            }
+            else
+            {
+                stream = null;
+            }
         }
 
         public void Dispose()
         {
-            stream.Dispose();
+            if (enable)
+            {
+                stream.Dispose();
+            }
         }
 
         public void Log(float f)
         {
-            stream.WriteLine(f);
+            if (enable)
+            {
+                stream.WriteLine(f);
+            }
+        }
+    }
+
+    class NamedLogger : IDisposable
+    {
+        private Dictionary<string, FileLogger> loggers = new Dictionary<string, FileLogger>();
+        private bool enable;
+
+        public NamedLogger(Dictionary<string, string> targets, bool enable = true, string prefix = "")
+        {
+            this.enable = enable;
+            if (enable)
+            {
+                foreach (var f in targets)
+                {
+                    try
+                    {
+                        string logFilePath = Path.Combine(prefix, f.Value + ".txt");
+                        loggers[f.Key] = new FileLogger(logFilePath, enable);
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.Log(e);
+                    }
+                }
+            }
+        }
+
+        public void Dispose()
+        {
+            if (!enable)
+            {
+                return;
+            }
+
+            foreach (var l in loggers)
+            {
+                try
+                {
+                    l.Value.Dispose();
+                }
+                catch (Exception e)
+                {
+
+                }
+            }
+        }
+
+        public void Log(string name, float value)
+        {
+            if (!enable)
+            {
+                return;
+            }
+            loggers[name].Log(value);
+        }
+
+        public FileLogger this[string name]
+        {
+            get { return loggers[name]; }
         }
     }
 
