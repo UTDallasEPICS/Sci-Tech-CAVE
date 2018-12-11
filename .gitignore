@@ -38,3 +38,6 @@ sysinfo.txt
 
 #Display configuration data
 DisplayConfig.test.json*
+
+#Log Files
+Unity/Assets/Logs/
