@@ -245,6 +245,8 @@ public class StateController : MonoBehaviour {
 		playerAnim.SetDeathAnimation(false);
 		// Dsiable user animation
 		playerAnim.SetUserAnimation(false);
+		// Turn oon Z-axis constraint
+		playerController.SetConstrainZ(true);
 		// Disable physics
 		enablePhysics(false);
 	}
@@ -254,7 +256,7 @@ public class StateController : MonoBehaviour {
 	public void BirdCrash() {
 		// Trigger death animation
 		playerAnim.SetDeathAnimation(true);
-		// Turn off x-axis constraint
+		// Turn off Z-axis constraint
 		playerController.SetConstrainZ(false);
 		// Stop traveling along the path
 		setSpeed(0f);
