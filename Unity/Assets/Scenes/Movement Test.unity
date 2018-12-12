@@ -616,8 +616,10 @@ MonoBehaviour:
   flapThrustScale: 2.5
   liftScale: 0.4
   vertDragScale: 1
-  torqueDampenPosFactor: {x: 0.02, y: 0.12, z: 0.02}
+  torqueDampenPosFactor: {x: 0.02, y: 0.12, z: 0.2}
   applyLift: 1
+  applyThrust: 1
+  applyWingForces: 1
 --- !u!54 &951878569
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -864,6 +866,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ab3c693199fea5b43b5b6546f41edc65, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  showDebugGUI: 0
+  clipSmallAngles: 1
+  logTrackingData: 0
+  smallAngleThreshold: 9
+  maxJointVelocity: 10
+  averagingSamples: 4
 --- !u!4 &1357379710
 Transform:
   m_ObjectHideFlags: 0

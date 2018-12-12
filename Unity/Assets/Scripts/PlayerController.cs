@@ -19,7 +19,8 @@
  * Unity's builtin translational drag.
  * 
  * Bird object settings (for the object to which this controller is attached):
- * The bird should have medium drag, about 0.5 translational, 5 angular.
+ * The bird should have medium drag, about 0.5 translational, 20 angular (5 angular without a collider).
+ * Note: A collider affects physical properties of the object
  * The bird's coordinate axes should be unmodified. The forward vector faces away from the camera, the right 
  * vector faces right, etc.
  * 
@@ -30,7 +31,6 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public class PlayerController : MonoBehaviour {
-
     /* TODO (time allowing):
      * Take velocity vector from last frame and rotate it so it is always relative to camera
 	 *    (otherwise the component perpendicular normal to the camera is lost; noticeable in sharp turns)
@@ -61,7 +61,7 @@ public class PlayerController : MonoBehaviour {
     // How much vertical drag is generated
     public float vertDragScale = 1f;
     // Torque dampening factor (Position-based; Edit Unity's builtin angular drag for velocity-based drag)
-    public Vector3 torqueDampenPosFactor = new Vector3(0.02f, 0.12f, 0.20f);
+    public Vector3 torqueDampenPosFactor = new Vector3(0.02f, 0.12f, 0.02f); // (.02, .12, .20 without a collider)
 
 	/// Paramters: Debug
 	// Whether to calculate lift
@@ -84,6 +84,8 @@ public class PlayerController : MonoBehaviour {
 	private const int trackerPollRate = 30;
 	// Maximum angle delta (degree/s / frames/s = degree/frame) beyond which we will assume data is erroneous
 	private const float maxAngleDelta = 1000 / trackerPollRate;
+	// Whether to constrain the bird in the X direction, at a fixed distance from the camera
+	private bool constrainZ = true;
 
 	/// Physical State
     // Rotation, read-only (0 upright, increses negative one direction, positive the other) (-180 to 180 rather than 0 to 360)
@@ -133,6 +135,7 @@ public class PlayerController : MonoBehaviour {
 		localBaseVelocity = transform.InverseTransformDirection(group.velocity);
 
         /// DEBUG Controls for Keyboard
+		#if UNITY_EDITOR
         // Add constant force to bird
         if (Input.GetKey("up")) {
             rb.AddRelativeForce(Vector3.up * flapThrustScale);
@@ -166,6 +169,7 @@ public class PlayerController : MonoBehaviour {
         if (Input.GetKey("w")) {
             rb.AddRelativeTorque(Vector3.forward * -5);
         }
+		#endif
 
         /// Input Control
 		// Set wing extension based on arm angle
@@ -233,13 +237,6 @@ public class PlayerController : MonoBehaviour {
 					rightWingForce += flapThrustScale * rightDelta;
 			}
 		}
-		//old
-		//if (applyThrust) {
-		//	if (pLeftArmAngle - tracker.data.leftArmAngle > 0)
-		//		leftWingForce += flapThrustScale * (pLeftArmAngle - tracker.data.leftArmAngle);
-		//	if (pRightArmAngle - tracker.data.rightArmAngle > 0)
-		//		rightWingForce += flapThrustScale * (pRightArmAngle - tracker.data.rightArmAngle);
-		//}
 
         /// Rotational Dampening
         // Nudge bird rotation so it stays upright when no other forces are applied
@@ -255,7 +252,8 @@ public class PlayerController : MonoBehaviour {
 		}
 
         // Keep depth (distance from camera) fixed; prevent drift in forward / backward direction
-        rb.transform.localPosition = new Vector3(rb.transform.localPosition.x,rb.transform.localPosition.y,0);
+		if (constrainZ)
+			rb.transform.localPosition = new Vector3(rb.transform.localPosition.x,rb.transform.localPosition.y,0);
 		
 		/// Input Control
 		// Save previous tracker arm angles
@@ -263,6 +261,7 @@ public class PlayerController : MonoBehaviour {
 		pRightArmAngle = tracker.data.rightArmAngle;
     }
 
+	/// Helper Functions
 	// Add a relative force at a given (world) position on the object
     private void AddRelativeForceAtPosition(Vector3 relativeForce, Vector3 worldPosition) {
 		// Convert force to world coordinates
@@ -271,10 +270,17 @@ public class PlayerController : MonoBehaviour {
         rb.AddForceAtPosition(relativeForce, worldPosition);
     }
 
+	/// Public Functions
+	// Public access to left & right wing forces
 	public float GetLeftWingForce() {
 		return leftWingForce;
 	}
 	public float GetRightWingForce() {
 		return rightWingForce;
+	}
+	
+	// Public access to set whether to constrain x-axis
+	public void SetConstrainZ(bool b) {
+		constrainZ = b;
 	}
 }

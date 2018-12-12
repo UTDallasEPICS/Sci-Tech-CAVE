@@ -20,7 +20,7 @@ public class AnimationController : MonoBehaviour {
 
 	/// Parameters
 	// Rate to fade between animations (weight/s)
-	float fadeRate = 0.5f;
+	float fadeRate = 1f;
 
 	/* Animation States:
 	 * Auto - Bird fully controlled by idling animations
@@ -72,6 +72,7 @@ public class AnimationController : MonoBehaviour {
 				updateWings();
 				// Gradually increase user control weight
 				setUserControl(getUserControl() + fadeRate * Time.deltaTime);
+				// Go to next state when end reached
 				if (getUserControl() >= 1) {
 					setUserControl(1f); // Warning! Unity does not clamp the wieght 0 - 1 for you
 					state = AnimState.userControl;
@@ -86,6 +87,7 @@ public class AnimationController : MonoBehaviour {
 				updateWings();
 				// Gradually decrease user control weight
 				setUserControl(getUserControl() - fadeRate * Time.deltaTime);
+				// Go to next state when end reached
 				if (getUserControl() <= 0) {
 					setUserControl(0f); // Warning! Unity does not clamp the wieght 0 - 1 for you
 					state = AnimState.auto;
@@ -94,6 +96,7 @@ public class AnimationController : MonoBehaviour {
 		}
 	}
 
+	/// Helper Functions
 	// Set the amount of control (0 - 1) that the user has over the wings' animation
 	private void setUserControl(float weight) {
 		// Set the full body idle animation weight as inverse
@@ -112,16 +115,28 @@ public class AnimationController : MonoBehaviour {
 		 * where stateNameHash = 0 is the current animation
 		 * 
 		 * Linear transformation: (90 - tracker.data.leftArmAngle)/180
+		 * Experimental transformation: (1 + Mathf.Cos( (tracker.data.leftArmAngle+90)*Mathf.PI/180) )/2
 		 * */
-		anim.Play(0, 0, (1 + Mathf.Cos( (tracker.data.leftArmAngle+90)*Mathf.PI/180) )/2);
+		anim.Play(0, 0, (90 - tracker.data.leftArmAngle)/180);
 		anim.Play(0, 1, (90 - tracker.data.rightArmAngle)/180);
 	}
 
+	/// Public Functions
 	// Public method to transition to/from user-controlled animations
 	public void SetUserAnimation(bool b) {
 		if (b)
 			state = AnimState.fadeIn;
 		else
 			state = AnimState.fadeOut;
+	}
+
+	// Public method to trigger death animation
+	public void SetDeathAnimation(bool b) {
+		if (b)
+			anim.SetTrigger("die");
+		else {
+			anim.ResetTrigger("die");
+			anim.Play("Idle");
+		}
 	}
 }
