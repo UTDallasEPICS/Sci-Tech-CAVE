@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using nt = nuitrack;
-using System.IO;
 
 /// <summary>
-/// This class process the data from Nuitrack and provides that data to the rest of the game.
+/// This class process the skeleton data from Nuitrack and provides that data to the rest of the game.
 /// </summary>
 public class SensorInterface : MonoBehaviour
 {
@@ -13,27 +13,34 @@ public class SensorInterface : MonoBehaviour
     /// <summary>
     /// Whether to show user tracking status and arm angle onscreen
     /// </summary>
+    [Tooltip("Show basic debug information")]
     public bool showDebugGUI = false;
     /// <summary>
     /// Whether to remove the small deadzone angles near 0 degrees 
     /// </summary>
+    [Tooltip("Whether to remove small angles near 0")]
     public bool clipSmallAngles = true;
     /// <summary>
     /// Whether to log detailed tracking data
     /// </summary>
+    [Tooltip("Whether to log detailed tracking data to a file")]
     public bool logTrackingData = false;
     /// <summary>
     /// Angles below this threshold will be considered small for the purposes of filtering
     /// </summary>
+    [Tooltip("The range of angles near 0 degrees to remove")]
     public float smallAngleThreshold = 9f;
     /// <summary>
     /// Maximum allowed joint velocity (in m/s)
     /// </summary>
+    [Tooltip("The maximum joint velocity allowed to occur (in m/s)")]
     public float maxJointVelocity = 10f;
     /// <summary>
     /// Number of samples to use in the moving average for the UserData
     /// </summary>
+    [Tooltip("The size of the moving average window")]
     public int averagingSamples = 4;
+
 
 
 
@@ -41,6 +48,7 @@ public class SensorInterface : MonoBehaviour
     /// The data to export
     /// </summary>
     public UserData data = new UserData(0, 0, 0, 0);
+
 
 
 
@@ -55,7 +63,7 @@ public class SensorInterface : MonoBehaviour
     /// <summary>
     /// Internal skeleton data 
     /// </summary>
-    private Skelly sk;
+    private ISkeleton sk;
     /// <summary>
     /// Logging object
     /// </summary>
@@ -65,9 +73,12 @@ public class SensorInterface : MonoBehaviour
     /// </summary>
     private DisposableList disList = new DisposableList();
 
+    /// <summary>
+    /// Initialize tracking system. Called once on game startup.
+    /// </summary>
     void Start()
     {
-        av = new MovingAverage(averagingSamples, 0.1f, 300000f, logTrackingData);
+        av = new MovingAverage(averagingSamples, logTrackingData);
         disList.Add(av);
 
         var logPath = Path.Combine(Application.dataPath, "Logs");
@@ -90,6 +101,9 @@ public class SensorInterface : MonoBehaviour
         sk = new Skelly(maxJointVelocity, true);
     }
 
+    /// <summary>
+    /// Update tracking data. Called once per game tick.
+    /// </summary>
     void Update()
     {
         if (CurrentUserTracker.CurrentUser != 0)
@@ -104,7 +118,9 @@ public class SensorInterface : MonoBehaviour
         }
     }
 
-    /// DEBUG Display the message on the screen
+    /// <summary>
+    /// Draw GUI elements
+    /// </summary>
     void OnGUI()
     {
         if (showDebugGUI)
@@ -115,6 +131,9 @@ public class SensorInterface : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Cleanup logging file handles. Called once when game stops.
+    /// </summary>
     void OnDestroy()
     {
         // Release all files
@@ -188,7 +207,7 @@ public class SensorInterface : MonoBehaviour
     }
 
     /// <summary>
-    /// 
+    /// Clip out the small angle deadzone if enabled
     /// </summary>
     /// <param name="angle">The angle to clip</param>
     /// <returns>The clipped angle</returns>
@@ -213,24 +232,62 @@ public class SensorInterface : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Simple struct storing joint positon and tracking confidence
+    /// </summary>
     struct Joint
     {
+        /// <summary>
+        /// The position of the joint in world space (in units of cm)
+        /// </summary>
         public Vector3 pos;
+        /// <summary>
+        /// The confidence in the joint position
+        /// </summary>
         public float confidence;
+        /// <summary>
+        /// The type of joint this is
+        /// </summary>
+        public nt.JointType jointType;
 
-        public Joint(Vector3 pos, float confidence)
+        /// <summary>
+        /// Creates a new joint with the given values
+        /// </summary>
+        /// <param name="pos">Joint position</param>
+        /// <param name="confidence">Tracking confidence</param>
+        /// <param name="jointType">Which joint this is</param>
+        public Joint(Vector3 pos, float confidence, nt.JointType jointType = nt.JointType.None)
         {
             this.pos = pos;
             this.confidence = confidence;
+            this.jointType = jointType;
         }
     }
 
+    /// <summary>
+    /// A simple struct to store user tracking data (arm angles and extensions)
+    /// </summary>
     public struct UserData
     {
-        public float rightArmAngle, rightArmExtension, leftArmAngle, leftArmExtension;
+        /// <summary>
+        /// The user's right arm angle in degrees
+        /// </summary>
+        public float rightArmAngle;
+        /// <summary>
+        /// The user's right arm extensions as a percent of maximum extension
+        /// </summary>
+        public float rightArmExtension;
+        /// <summary>
+        /// The user's left arm angle in degrees
+        /// </summary>
+        public float leftArmAngle;
+        /// <summary>
+        /// The user's left arm extension as a percent of maximum extension
+        /// </summary>
+        public float leftArmExtension;
 
         /// <summary>
-        /// 
+        /// Construct a UserData object with the provided information
         /// </summary>
         /// <param name="rightArmAngle">Angle of the user's right arm in degrees</param>
         /// <param name="rightArmExtension">Extension of the user's right arm as percent of max extension</param>
@@ -249,6 +306,10 @@ public class SensorInterface : MonoBehaviour
             return "LA: " + Mathf.Round(leftArmAngle) + "\nRA: " + Mathf.Round(rightArmAngle);
         }
 
+        /// <summary>
+        /// Add the values from another UserData object to this object
+        /// </summary>
+        /// <param name="a">The UserData object to add</param>
         public void Add(UserData a)
         {
             rightArmAngle += a.rightArmAngle;
@@ -257,30 +318,16 @@ public class SensorInterface : MonoBehaviour
             leftArmExtension += a.leftArmExtension;
         }
 
+        /// <summary>
+        /// Divide this objects values by the passed value
+        /// </summary>
+        /// <param name="a">The value to divide by</param>
         public void Divide(int a)
         {
             rightArmAngle /= a;
             rightArmExtension /= a;
             leftArmAngle /= a;
             leftArmExtension /= a;
-        }
-
-        public void Interp(UserData a, float t)
-        {
-            rightArmAngle = Mathf.Lerp(rightArmAngle, a.rightArmAngle, t);
-            leftArmAngle = Mathf.Lerp(leftArmAngle, a.leftArmAngle, t);
-            rightArmExtension = Mathf.Lerp(rightArmExtension, a.rightArmExtension, t);
-            leftArmExtension = Mathf.Lerp(leftArmExtension, a.leftArmExtension, t);
-        }
-
-        public static UserData operator *(float a, UserData b)
-        {
-            return new UserData(b.rightArmAngle * a, b.rightArmExtension * a, b.leftArmAngle * a, b.leftArmExtension * a);
-        }
-
-        public static UserData operator +(UserData a, UserData b)
-        {
-            return new UserData(a.rightArmAngle + b.rightArmAngle, a.rightArmExtension + b.rightArmExtension, a.leftArmAngle + b.leftArmAngle, a.leftArmExtension + b.leftArmExtension);
         }
     }
 
@@ -295,29 +342,56 @@ public class SensorInterface : MonoBehaviour
         return (hand.confidence >= elbow.confidence) ? hand.pos : elbow.pos;
     }
 
+    /// <summary>
+    /// This class implements a moving average of UserData objects over the specified period
+    /// </summary>
     private class MovingAverage : IDisposable
     {
-        private readonly float interpTime, errorThreshold;
-
+        /// <summary>
+        /// Position of the oldest sample
+        /// </summary>
         private int index = 0;
+        /// <summary>
+        /// Period of the moving average
+        /// </summary>
         private readonly int SampleCount;
+        /// <summary>
+        /// Moving average sample data
+        /// </summary>
         private UserData[] Samples;
+        /// <summary>
+        /// Computed average
+        /// </summary>
         private UserData average;
+        /// <summary>
+        /// Whether the average needs to be recalculated
+        /// </summary>
         private bool upToDate = false;
 
         // Logging related variables
+        /// <summary>
+        /// Whether logging is enabled
+        /// </summary>
         private readonly bool log;
+        /// <summary>
+        /// The logger
+        /// </summary>
         private NamedLogger nLog;
+        /// <summary>
+        /// List of all objects that need to be disposed of
+        /// </summary>
         private DisposableList disList = new DisposableList();
 
-        public MovingAverage(int sampleCount, float interpTime = 0f, float errorThreshold = float.PositiveInfinity, bool log = false)
+        /// <summary>
+        /// Constructs a MovingAverage object with the specified period with a flag to control logging
+        /// </summary>
+        /// <param name="sampleCount">Moving average period</param>
+        /// <param name="log">Whether to log data</param>
+        public MovingAverage(int sampleCount, bool log = false)
         {
-
             SampleCount = sampleCount;
             Samples = new UserData[SampleCount];
 
-            this.interpTime = interpTime;
-            this.errorThreshold = errorThreshold;
             this.log = log;
 
             if (log)
@@ -334,42 +408,57 @@ public class SensorInterface : MonoBehaviour
 
         }
 
+        /// <summary>
+        /// Add a new sample to rolling average
+        /// </summary>
+        /// <param name="sample">The sample to add</param>
         public void PushSample(UserData sample)
         {
-            if (Mathf.Abs(Samples[index].leftArmAngle - sample.leftArmAngle) > errorThreshold || Mathf.Abs(Samples[index].rightArmAngle - sample.rightArmAngle) > errorThreshold)
-            {
-                //DEBUG
-                //print("Position error detected, smoothing...");
-                var t = Samples[index];
-                t.Interp(sample, interpTime);
-                sample = t;
-            }
+            // Replace oldest sample
             Samples[index] = sample;
+
+            // Update position of oldest sample
             index = (index + 1) % Samples.Length;
+
+            // Set flag to indicate that the average needs to be recalculated
             upToDate = false;
 
+            // Log the raw value if logging is enabled
             if (log)
             {
                 nLog.Log("raLogRaw", sample.rightArmAngle);
             }
         }
 
+        /// <summary>
+        /// Get the rolling average
+        /// </summary>
+        /// <returns>The current average</returns>
         public UserData GetAverage()
         {
+            // Recalculate the average if necessary
             if (!upToDate)
             {
                 average = new UserData(0, 0, 0, 0);
+
+                // Add each sample
                 foreach (var a in Samples)
                 {
                     average.Add(a);
                 }
+
+                // Divide by number of samples
                 average.Divide(SampleCount);
+
+                // Log the average if enabled
+                if (log)
+                {
+                    nLog.Log("raAvLog", average.rightArmAngle);
+                }
+
             }
 
-            if (log)
-            {
-                nLog.Log("raAvLog", average.rightArmAngle);
-            }
+            // Return the average
             return average;
         }
 
@@ -382,12 +471,29 @@ public class SensorInterface : MonoBehaviour
         }
     }
 
-    class Skelly
+    /// <summary>
+    /// Skeleton model that prevents joints from moving to quickly and interpolates their location if they do.
+    /// </summary>
+    class Skelly : ISkeleton
     {
+        /// <summary>
+        /// The tracked skeleton joints
+        /// </summary>
         private Dictionary<nt.JointType, Joint> joints;
+        /// <summary>
+        /// The maximum allowed joint velocity (in cm/s)
+        /// </summary>
         private float maxVelocity;
+        /// <summary>
+        /// Whether to log tracking data
+        /// </summary>
         private bool log;
 
+        /// <summary>
+        /// Construct a new Skeleton model with the given parameters
+        /// </summary>
+        /// <param name="maxVelocity">Maximum allowed joint velocity (in m/s)</param>
+        /// <param name="log">Whether to log tracking data</param>
         public Skelly(float maxVelocity, bool log = false)
         {
             this.maxVelocity = 100f * maxVelocity;
@@ -397,7 +503,7 @@ public class SensorInterface : MonoBehaviour
 
             foreach (nuitrack.JointType jt in (nuitrack.JointType[])System.Enum.GetValues(typeof(nuitrack.JointType)))
             {
-                joints[jt] = new Joint(new Vector3(0, 0, 0), 0f);
+                joints[jt] = new Joint(new Vector3(0, 0, 0), 0f, jt);
             }
         }
 
@@ -407,18 +513,25 @@ public class SensorInterface : MonoBehaviour
             set { joints[j] = value; }
         }
 
+        /// <summary>
+        /// Update the skeleton model based on new data from Nuitrack
+        /// </summary>
+        /// <param name="newData">The new skeleton data</param>
+        /// <returns>Indicator if interpolation was performed</returns>
         public bool Update(nt.Skeleton newData)
         {
             bool error = false;
 
             foreach (nuitrack.JointType jt in (nuitrack.JointType[])System.Enum.GetValues(typeof(nuitrack.JointType)))
             {
+                //New position of the joint being processed
                 Vector3 newJPos = newData.GetJoint(jt).Real.ToVector3();
+                //Confidence of the new joint being looked at
                 float newJConf = newData.GetJoint(jt).Confidence;
 
                 if (DistanceTraveled(joints[jt], newJPos) > maxVelocity * Time.deltaTime)
                 {
-                    joints[jt] = new Joint(joints[jt].pos + Vector3.Normalize(newJPos - joints[jt].pos) * maxVelocity * Time.deltaTime, newJConf);
+                    joints[jt] = new Joint(joints[jt].pos + Vector3.Normalize(newJPos - joints[jt].pos) * maxVelocity * Time.deltaTime, newJConf, jt);
                     error = true;
 
                     if (log)
@@ -428,7 +541,7 @@ public class SensorInterface : MonoBehaviour
                 }
                 else
                 {
-                    joints[jt] = new Joint(newJPos, newJConf);
+                    joints[jt] = new Joint(newJPos, newJConf, jt);
                 }
             }
 
@@ -440,17 +553,37 @@ public class SensorInterface : MonoBehaviour
             return new Dictionary<nt.JointType, Joint>(joints);
         }
 
+        /// <summary>
+        /// Calculate distance traveled between two joint positions
+        /// </summary>
+        /// <param name="a">The current joint from the skeleton model</param>
+        /// <param name="b">The new joint position from Nuitrack</param>
+        /// <returns>The distance between the two joint positions</returns>
         private static float DistanceTraveled(Joint a, Vector3 b)
         {
             return Vector3.Magnitude(b - a.pos);
         }
     }
 
+    /// <summary>
+    /// This class provides the ability to log floating point data into a file
+    /// </summary>
     class FileLogger : IDisposable
     {
+        /// <summary>
+        /// The output file stream
+        /// </summary>
         private StreamWriter stream;
+        /// <summary>
+        /// Whether this logger is enabled
+        /// </summary>
         private readonly bool enable;
 
+        /// <summary>
+        /// Construct a logger that outputs to the given file
+        /// </summary>
+        /// <param name="file">The output log file</param>
+        /// <param name="enable">Whether this logger is enabled</param>
         public FileLogger(string file, bool enable = true)
         {
             this.enable = enable;
@@ -458,7 +591,8 @@ public class SensorInterface : MonoBehaviour
             {
                 try
                 {
-                    (new FileInfo(file)).Directory.Create();
+                    (new FileInfo(file)).Directory.Create(); // Create all the necessary directories
+                    // Create the output stream
                     stream = new StreamWriter(new BufferedStream(new FileStream(file, FileMode.Append)));
                 }
                 catch (Exception)
@@ -474,14 +608,22 @@ public class SensorInterface : MonoBehaviour
             }
         }
 
+        /// <summary>
+        /// Dispose of the object
+        /// </summary>
         public void Dispose()
         {
             if (enable)
             {
+                // Release the file stream
                 stream.Dispose();
             }
         }
 
+        /// <summary>
+        /// Log a value
+        /// </summary>
+        /// <param name="f">The value to log</param>
         public void Log(float f)
         {
             if (enable)
@@ -587,6 +729,11 @@ public class SensorInterface : MonoBehaviour
             }
         }
 
+        /// <summary>
+        /// Get the logger associated with the given variable
+        /// </summary>
+        /// <param name="name">Variable name</param>
+        /// <returns>The logger associated with the given variable</returns>
         public FileLogger this[string name]
         {
             get { return loggers[name]; }
@@ -607,6 +754,72 @@ public class SensorInterface : MonoBehaviour
             {
                 try { o.Dispose(); } catch (Exception) { }
             }
+        }
+    }
+
+    /// <summary>
+    /// Simple interface that all skeleton objects must satisfy for them to function
+    /// </summary>
+    interface ISkeleton
+    {
+        /// <summary>
+        /// Update the internal skeleton model
+        /// </summary>
+        /// <param name="skel">Raw data sample from Nuitrack</param>
+        /// <returns>Boolean indicating whether joint interpolation/error correction was necessary</returns>
+        bool Update(nt.Skeleton skel);
+
+        /// <summary>
+        /// Get the given joint
+        /// </summary>
+        /// <param name="j">The type of joint to get</param>
+        /// <returns>The requested joint</returns>
+        Joint this[nt.JointType j]
+        {
+            get;
+        }
+
+        /// <summary>
+        /// Get a full copy of the skeleton data
+        /// </summary>
+        /// <returns>Dictionary with all the skeleton joints</returns>
+        Dictionary<nt.JointType, Joint> GetValue();
+    }
+
+    /// <summary>
+    /// WIP class that would determine if a joint movement was valid by measuring it's veloity relative to it's parent joint.
+    /// This class is not complete as it was deemed uneccesary at the time of this software's development.
+    /// However, if later it is deemed necessary to have a more accurate internal skeleton model this provides a starting point.
+    /// </summary>
+    class HighAccuracySkeleton : ISkeleton
+    {
+        private Dictionary<nt.JointType, Joint> joints;
+        private Dictionary<nt.JointType, nt.JointType> jointParents;
+        private Dictionary<nt.JointType, float> maxJointSpeeds;
+
+        public HighAccuracySkeleton()
+        {
+
+        }
+
+        public HighAccuracySkeleton(Dictionary<nt.JointType, float> maxJointSpeeds)
+        {
+
+        }
+
+        public Joint this[nt.JointType t]
+        {
+            get { return joints[t]; }
+        }
+
+        public Dictionary<nt.JointType, Joint> GetValue()
+        {
+            throw new NotImplementedException();
+        }
+
+        public bool Update(nt.Skeleton skel)
+        {
+            throw new NotImplementedException();
         }
     }
 }
